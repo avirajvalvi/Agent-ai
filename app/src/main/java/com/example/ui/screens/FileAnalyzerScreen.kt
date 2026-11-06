@@ -33,6 +33,9 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.TextSnippet
+import androidx.compose.material.icons.filled.Cached
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -43,6 +46,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -81,6 +89,7 @@ fun FileAnalyzerScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val report by fileAnalyzerViewModel.currentReport.collectAsState()
+    val userSettings by fileAnalyzerViewModel.userSettings.collectAsState()
 
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("Summary", "Keywords (${report.keywords.size})", "Content Editor")
@@ -144,6 +153,134 @@ fun FileAnalyzerScreen(
                     Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Upload File", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            // DataStore-backed Offline Mode Toggle & Cached Cybersecurity Analysis Banner
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (userSettings.isOfflineMode) Color(0xFF2E2218) else Color(0xFF22201E),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (userSettings.isOfflineMode) TerracottaPrimary.copy(alpha = 0.5f) else Color(0xFF383531)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (userSettings.isOfflineMode) Icons.Default.CloudOff else Icons.Default.Cached,
+                                contentDescription = null,
+                                tint = if (userSettings.isOfflineMode) TerracottaPrimary else CyberEmerald,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = if (userSettings.isOfflineMode) "Offline Mode (Disconnected Cache Active)" else "Offline Mode",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color(0xFFFAF8F5),
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
+                                    )
+                                )
+                                Text(
+                                    text = if (userSettings.isOfflineMode) "Preserving last processed cybersecurity analysis" else "Auto-caches cybersecurity analysis when disconnected",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA8A29E), fontSize = 11.sp)
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = userSettings.isOfflineMode,
+                            onCheckedChange = { checked ->
+                                fileAnalyzerViewModel.toggleOfflineMode(checked)
+                                Toast.makeText(
+                                    context,
+                                    if (checked) "Offline Mode Enabled: Cybersecurity analysis cached in DataStore" else "Offline Mode Disabled",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = TerracottaPrimary,
+                                uncheckedThumbColor = Color(0xFFA8A29E),
+                                uncheckedTrackColor = Color(0xFF383531)
+                            ),
+                            modifier = Modifier.testTag("offline_mode_toggle")
+                        )
+                    }
+
+                    userSettings.cachedAnalysis?.let { cached ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val dateFormatted = if (cached.timestamp > 0) {
+                            SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(cached.timestamp))
+                        } else "Recent"
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF141312),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Security,
+                                        contentDescription = null,
+                                        tint = CyberEmerald,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Cached Analysis: ${cached.title} ($dateFormatted)",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = CyberEmerald,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 11.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                Surface(
+                                    onClick = {
+                                        fileAnalyzerViewModel.loadCachedAnalysis(cached)
+                                        Toast.makeText(context, "Loaded cached analysis: ${cached.title}", Toast.LENGTH_SHORT).show()
+                                    },
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = TerracottaPrimary
+                                ) {
+                                    Text(
+                                        text = "Load",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

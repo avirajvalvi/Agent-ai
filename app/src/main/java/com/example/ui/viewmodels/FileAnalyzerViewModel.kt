@@ -3,17 +3,32 @@ package com.example.ui.viewmodels
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.data.analyzer.DocumentAnalysisEngine
 import com.example.data.models.FileSummaryReport
+import com.example.data.preferences.CachedCyberAnalysis
+import com.example.data.preferences.UserSettings
+import com.example.data.preferences.UserSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
 class FileAnalyzerViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val userSettingsRepo = UserSettingsRepository(application)
     private val analysisEngine = DocumentAnalysisEngine()
+
+    val userSettings: StateFlow<UserSettings> = userSettingsRepo.userSettingsFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = UserSettings()
+        )
 
     private val samplePdfContent = """
 # Enterprise Cybersecurity Audit & Defense Whitepaper
@@ -36,6 +51,41 @@ Repeated failed password attempts on SSH or administrative portals must trigger 
 
     private val _isAnalyzing = MutableStateFlow(false)
     val isAnalyzing: StateFlow<Boolean> = _isAnalyzing.asStateFlow()
+
+    init {
+        // Initial cache of default analysis for offline resilience
+        viewModelScope.launch {
+            val initial = _currentReport.value
+            userSettingsRepo.cacheCybersecurityAnalysis(
+                title = initial.fileName,
+                summary = initial.executiveSummary,
+                content = initial.editedContent,
+                severity = "HIGH",
+                category = "Enterprise Whitepaper"
+            )
+        }
+    }
+
+    fun toggleOfflineMode(enabled: Boolean) {
+        viewModelScope.launch {
+            userSettingsRepo.setOfflineMode(enabled)
+            if (enabled) {
+                // If toggled on, ensure current analysis is saved
+                val report = _currentReport.value
+                userSettingsRepo.cacheCybersecurityAnalysis(
+                    title = report.fileName,
+                    summary = report.executiveSummary,
+                    content = report.editedContent,
+                    severity = "HIGH",
+                    category = "Cybersecurity Analysis"
+                )
+            }
+        }
+    }
+
+    fun loadCachedAnalysis(cached: CachedCyberAnalysis) {
+        _currentReport.value = analysisEngine.analyzeDocument(cached.title, cached.content)
+    }
 
     fun loadSample(sampleName: String) {
         val (fileName, content) = when (sampleName) {
@@ -72,7 +122,19 @@ def audit_target(ip, port_list):
             )
             else -> Pair("Security_Audit_Whitepaper.pdf", samplePdfContent)
         }
-        _currentReport.value = analysisEngine.analyzeDocument(fileName, content)
+        val report = analysisEngine.analyzeDocument(fileName, content)
+        _currentReport.value = report
+
+        // Update DataStore cached cybersecurity analysis
+        viewModelScope.launch {
+            userSettingsRepo.cacheCybersecurityAnalysis(
+                title = fileName,
+                summary = report.executiveSummary,
+                content = report.editedContent,
+                severity = if (fileName.contains("Playbook")) "CRITICAL" else "HIGH",
+                category = "Defensive Security Audit"
+            )
+        }
     }
 
     fun ingestUserFile(uri: Uri, fileName: String) {
@@ -89,13 +151,33 @@ def audit_target(ip, port_list):
             }
             reader.close()
             val text = stringBuilder.toString()
-            _currentReport.value = analysisEngine.analyzeDocument(fileName, text)
+            val report = analysisEngine.analyzeDocument(fileName, text)
+            _currentReport.value = report
+
+            viewModelScope.launch {
+                userSettingsRepo.cacheCybersecurityAnalysis(
+                    title = fileName,
+                    summary = report.executiveSummary,
+                    content = report.editedContent,
+                    severity = "HIGH",
+                    category = "User Ingested Audit"
+                )
+            }
         } catch (e: Exception) {
-            // Fallback to sample analysis if binary format
-            _currentReport.value = analysisEngine.analyzeDocument(
+            val fallbackReport = analysisEngine.analyzeDocument(
                 fileName,
                 "Uploaded file: $fileName. Successfully ingested for automated summarization and entity extraction."
             )
+            _currentReport.value = fallbackReport
+            viewModelScope.launch {
+                userSettingsRepo.cacheCybersecurityAnalysis(
+                    title = fileName,
+                    summary = fallbackReport.executiveSummary,
+                    content = fallbackReport.editedContent,
+                    severity = "MEDIUM",
+                    category = "Ingested File"
+                )
+            }
         } finally {
             _isAnalyzing.value = false
         }
@@ -103,6 +185,15 @@ def audit_target(ip, port_list):
 
     fun updateEditedContent(newContent: String) {
         _currentReport.value = _currentReport.value.copy(editedContent = newContent)
+        viewModelScope.launch {
+            userSettingsRepo.cacheCybersecurityAnalysis(
+                title = _currentReport.value.fileName,
+                summary = _currentReport.value.executiveSummary,
+                content = newContent,
+                severity = "HIGH",
+                category = "Edited Report"
+            )
+        }
     }
 
     fun applyAiImprovement() {
@@ -117,5 +208,14 @@ ${cur.editedContent}
 • Conforms to OWASP Top 10 defensive guidelines.
         """.trimIndent()
         _currentReport.value = cur.copy(editedContent = enhanced)
+        viewModelScope.launch {
+            userSettingsRepo.cacheCybersecurityAnalysis(
+                title = cur.fileName,
+                summary = cur.executiveSummary,
+                content = enhanced,
+                severity = "HIGH",
+                category = "AI Verified Audit"
+            )
+        }
     }
 }
