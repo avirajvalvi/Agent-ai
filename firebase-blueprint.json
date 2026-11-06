@@ -1,0 +1,153 @@
+{
+  "entities": {
+    "ActionLog": {
+      "title": "ActionLog",
+      "description": "Log of an autonomous action performed by the security AI agent.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the action log entry."
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the user who owns this action log."
+        },
+        "stepId": {
+          "type": "string",
+          "description": "Identifier for the execution step."
+        },
+        "toolName": {
+          "type": "string",
+          "description": "Name of the security tool or action executed."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable summary of the action."
+        },
+        "details": {
+          "type": "string",
+          "description": "Detailed log or command output (optional)."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the execution: SUCCESS, FAILED, RUNNING, or RETRYING.",
+          "enum": ["SUCCESS", "FAILED", "RUNNING", "RETRYING"]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the event occurred. Must submit FieldValue.serverTimestamp()."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp. Must submit FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp. Must submit FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["id", "userId", "stepId", "toolName", "description", "status", "timestamp", "createdAt", "updatedAt"]
+    },
+    "SecurityChat": {
+      "title": "SecurityChat",
+      "description": "Security discussion session or tool consultation.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the chat session."
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the user who owns this chat."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title or topic of the security conversation."
+        },
+        "lastMessage": {
+          "type": "string",
+          "description": "Snippet of the most recent message."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last message. Must submit FieldValue.serverTimestamp()."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp. Must submit FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp. Must submit FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["id", "userId", "title", "lastMessage", "timestamp", "createdAt", "updatedAt"]
+    },
+    "SecurityProject": {
+      "title": "SecurityProject",
+      "description": "User security project or vulnerability audit workspace.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the project."
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the owner."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the project or repo."
+        },
+        "description": {
+          "type": "string",
+          "description": "Project overview."
+        },
+        "category": {
+          "type": "string",
+          "description": "Security domain (e.g., OSINT, Recon, Scanner, Defense)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp. Must submit FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update timestamp. Must submit FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["id", "userId", "title", "category", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/action_logs/{logId}": {
+      "schema": {
+        "$ref": "#/entities/ActionLog"
+      },
+      "description": "Autonomous action logs for a user."
+    },
+    "/users/{userId}/security_chats/{chatId}": {
+      "schema": {
+        "$ref": "#/entities/SecurityChat"
+      },
+      "description": "Security chat history for a user."
+    },
+    "/users/{userId}/security_projects/{projectId}": {
+      "schema": {
+        "$ref": "#/entities/SecurityProject"
+      },
+      "description": "Security projects and repos for a user."
+    }
+  }
+}

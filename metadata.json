@@ -1,0 +1,6 @@
+{
+  "name": "SecMentor AI",
+  "description": "Claude-inspired multimodal AI cybersecurity mentor and interactive Linux terminal sandbox for defensive security tools and code analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
